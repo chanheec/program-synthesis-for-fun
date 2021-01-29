@@ -232,17 +232,6 @@ function findAnswerIndex(plist, inputoutputs) {
     return plist.findIndex(e => isCorrect(e, inputoutputs));
 }
 
-// $$ arguments
-// pgm1: program to check
-// pgm2: program to check
-// inputoutputs: specification (programming by example)
-//
-// return value: true / false 
-//
-// "observational equivalence" - not real equivalence
-function isEquivalent(pgm1, pgm2, inputoutputs) {
-    return inputoutputs.every(i => (pgm1.interpret(i) == pgm2.interpret(i)));
-}
 
 // check if 'pgm1' and 'pgm2' is equivanlent.
 // note that "observational equivalence" is not 'real' equivalence
