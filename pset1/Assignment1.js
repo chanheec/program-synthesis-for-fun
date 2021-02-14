@@ -267,10 +267,6 @@ function isNew(pgm, plist, inputoutputs) {
 //
 // return value:  list of newly generated programs
 function grow_intOps(intOps, int_plist, bool_plist){
-    DEBUG_LOGGING(2, "grow_intOps begin");
-    DEBUG_LOGGING(2, str(intOps));
-    DEBUG_LOGGING(2, int_plist);
-    DEBUG_LOGGING(2, bool_plist);
     var generated_pgms = [];
 
     // VR, NUM is already handled at the beginning of bottomUp()
@@ -358,7 +354,6 @@ function grow_boolOps(boolOps, int_plist, bool_plist){
 // int_plist     list of int type programs
 // bool_plist    list of bool type programs
 function bottomUp(globalBnd, intOps, boolOps, vars, consts, inputoutputs) {     //Complete the body of randomExpr
-    SET_LOG_LEVEL(1);
 
     // set initial program lists
     var int_plist = (vars.map(v=> new Var(v))).concat(consts.map(c => new Num(c)));   // assume Var, Num is included in intOps 
@@ -379,11 +374,62 @@ function bottomUp(globalBnd, intOps, boolOps, vars, consts, inputoutputs) {     
     for(var i=0; i<globalBnd; i++) {
         DEBUG_LOGGING(1, str(i) + "-th loop begin");
 
+        // make new programs using context free grammar
+        generated_int_list  = grow_intOps(intOps, int_plist, bool_plist);
+        generated_int_list.map(e => DEBUG_LOGGING(2, e.toString()));  
+        generated_bool_list = grow_boolOps(boolOps,int_plist,bool_plist);
+        generated_bool_list.map(e => DEBUG_LOGGING(2, e.toString()));
+
+        // if generated pgm is new, push to the list  instead of "elimEquvalents"  
+        generated_int_list.map(e => ((isNew(e,int_plist,inputoutputs) ? int_plist.push(e) : -1 )));     // -1 : do nothing
+        generated_bool_list.map(e => ((isNew(e,bool_plist,inputoutputs) ? bool_plist.push(e) : -1 )));  // -1 : do nothing
+
         // check if an answer exists
         idx = findAnswerIndex(int_plist, inputoutputs);
         if(idx != -1) return int_plist[idx];
         idx = findAnswerIndex(bool_plist, inputoutputs);
         if(idx != -1) return bool_plist[idx];
+    }
+	return "FAIL";
+}
+
+
+
+
+
+
+// Two more contraints than the above fucntion
+//   1) Multiplications can only occur between variables and constants or between two variables
+//   2) Comparisons cannot include any arithmetic, only variables and constants
+function bottomUpFaster(globalBnd, intOps, boolOps, vars, consts, inputoutputs){
+    DEBUG_LOGGING(2, "bottomUpFaster begin");
+
+    // set initial program lists
+    // assume Var, Num is included in intOps  - handle Var, Num
+    var int_plist = (vars.map(v=> new Var(v))).concat(consts.map(c => new Num(c)));   
+    var bool_plist = [];
+    if(boolOps.includes("FALSE")){
+        bool_plist = [new False()];
+    }
+
+    // print initial inputs
+    DEBUG_LOGGING(1, "initial int_plist");
+    int_plist.map(e => DEBUG_LOGGING(1, e.toString()));    
+    DEBUG_LOGGING(1, "initial bool_plist");
+    bool_plist.map(e => DEBUG_LOGGING(1, e.toString()));  
+
+
+    var idx;
+    var generated_int_list;
+    var generated_bool_list;
+    for(var i=0; i<globalBnd; i++) {
+        DEBUG_LOGGING(1, str(i) + "-th loop begin");
+
+        // Remove Lt and Times (two constraints make Times and Lt obsolete at this point)
+        if(i==1){  
+            intOps = intOps.filter(e => e!="TIMES");
+            boolOps = boolOps.filter(e => e!="LT" );    
+        }
 
         // make new programs using context free grammar
         generated_int_list  = grow_intOps(intOps, int_plist, bool_plist);
@@ -394,18 +440,20 @@ function bottomUp(globalBnd, intOps, boolOps, vars, consts, inputoutputs) {     
         // if generated pgm is new, push to the list  instead of "elimEquvalents"  
         generated_int_list.map(e => ((isNew(e,int_plist,inputoutputs) ? int_plist.push(e) : -1 )));     // -1 : do nothing
         generated_bool_list.map(e => ((isNew(e,bool_plist,inputoutputs) ? bool_plist.push(e) : -1 )));  // -1 : do nothing
+
+        // check if an answer exists
+        idx = findAnswerIndex(int_plist, inputoutputs);
+        if(idx != -1) return int_plist[idx];
+        idx = findAnswerIndex(bool_plist, inputoutputs);
+        if(idx != -1) return bool_plist[idx];
     }
 	return "FAIL";
-}
-
-
-function bottomUpFaster(globalBnd, intOps, boolOps, vars, consts, inputoutput){
-		
-	return "NYI";
 }     
 
 
 function run1a1(){
+    SET_LOG_LEVEL(0);
+
     writeToConsole("1a1 - 1");
     var rv1 = bottomUp(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [4, 5], [{x:5,y:10, _out:5},{x:8,y:3, _out:8}]);
 	writeToConsole("RESULT: " + rv1.toString());
@@ -422,6 +470,7 @@ function run1a1(){
 
 
 function run1a2(){
+    SET_LOG_LEVEL(0);
 	
 	var rv = bottomUp(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [-1, 5], [
 		{x:10, y:7, _out:17},
@@ -436,16 +485,30 @@ function run1a2(){
    
 
 function run1b(){
-	
-	var rv = bottomUpFaster(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [-1, 5], [
+    SET_LOG_LEVEL(0);
+
+    writeToConsole("1b - 1");
+    var rv1 = bottomUp(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [4, 5], [{x:5,y:10, _out:5},{x:8,y:3, _out:8}]);
+	writeToConsole("RESULT: " + rv1.toString());
+    
+    writeToConsole("1b - 2");
+	var rv2 = bottomUp(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [4, 5], [{x:5,y:10, _out:5},{x:8,y:3, _out:3}]);
+    writeToConsole("RESULT: " + rv2.toString());
+    
+    writeToConsole("1b - 3");
+    var rv3 = bottomUp(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [2, 3], 
+                          [{x:5,y:10, _out:40},{x:8,y:3, _out:25}, {x:2,y:30, _out:94}]);   // 2x + 3y
+    writeToConsole("RESULT: " + rv3.toString());
+    
+    writeToConsole("1b - 4");
+	var rv4 = bottomUpFaster(3, [VR, NUM, PLUS, TIMES, ITE], [AND, NOT, LT, FALSE], ["x", "y"], [-1, 5], [
 		{x:10, y:7, _out:17},
 		{x:4, y:7, _out:-7},
 		{x:10, y:3, _out:13},
 		{x:1, y:-7, _out:-6},
 		{x:1, y:8, _out:-8}		
 		]);
-	writeToConsole("RESULT: " + rv.toString());
-	
+	writeToConsole("RESULT: " + rv4.toString());
 }
 
 
